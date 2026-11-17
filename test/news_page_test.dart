@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_news_app/models/article.dart';
 import 'package:flutter_news_app/pages/news_page.dart';
+import 'package:flutter_news_app/services/bookmark_service.dart';
 import 'package:flutter_news_app/services/news_service.dart';
 
 /// Service tiruan: mengembalikan data/error yang sudah ditentukan test
@@ -55,7 +57,7 @@ Article buildArticle(String title, {String imageUrl = ''}) {
     description: 'Deskripsi $title',
     imageUrl: imageUrl,
     sourceName: 'Sumber $title',
-    publishedAt: '2026-01-01T00:00:00Z',
+    publishedAt: '2026-01-01T12:00:00Z',
     url: 'https://example.com/$title',
   );
 }
@@ -205,9 +207,10 @@ void main() {
     expect(find.text('Detail Berita'), findsOneWidget);
     expect(find.text('Berita Kedua'), findsOneWidget);
     expect(find.text('Sumber Berita Kedua'), findsOneWidget);
-    expect(find.text('2026-01-01T00:00:00Z'), findsOneWidget);
+    expect(find.text('1 Jan 2026'), findsOneWidget);
     expect(find.text('Deskripsi Berita Kedua'), findsOneWidget);
-    expect(find.text('Berita Pertama'), findsNothing);
+    // Berita lain tetap tersedia sebagai rekomendasi "Berita Terkait".
+    expect(find.text('Berita Pertama'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -231,6 +234,8 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final title in ['Berita Satu', 'Berita Dua', 'Berita Tiga']) {
+      await tester.ensureVisible(find.text(title));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(title));
       await tester.pumpAndSettle();
 
@@ -278,5 +283,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Deskripsi tidak tersedia.'), findsOneWidget);
+  });
+
+  testWidgets('menampilkan status bookmark dan membuka halaman bookmark', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final bookmarkService = BookmarkService();
+    await bookmarkService.load();
+
+    final savedArticle = buildArticle('Berita Disimpan');
+    await bookmarkService.add(savedArticle);
+
+    final service = FakeNewsService(
+      articles: [savedArticle, buildArticle('Berita Lain')],
+    );
+
+    await tester.pumpWidget(
+      wrap(NewsPage(newsService: service, bookmarkService: bookmarkService)),
+    );
+    await tester.pumpAndSettle();
+
+    // Status bookmark tampil pada kartu berita utama.
+    expect(find.byIcon(Icons.bookmark), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('open-bookmarks-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bookmark'), findsOneWidget);
+    expect(find.text('Berita Disimpan'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bookmark-back-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('News App'), findsOneWidget);
   });
 }

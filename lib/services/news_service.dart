@@ -16,7 +16,7 @@ class NewsService {
       'category': category,
       'pageSize': '20',
     });
-    return _getArticles(uri);
+    return _getArticles(uri, category: category);
   }
 
   Future<List<Article>> searchArticles({required String query}) async {
@@ -28,7 +28,7 @@ class NewsService {
     return _getArticles(uri);
   }
 
-  Future<List<Article>> _getArticles(Uri uri) async {
+  Future<List<Article>> _getArticles(Uri uri, {String category = ''}) async {
     final apiKey = dotenv.env['NEWS_API_KEY'] ?? '';
 
     if (apiKey.isEmpty) {
@@ -57,7 +57,12 @@ class NewsService {
 
     final articlesJson = data['articles'] as List<dynamic>? ?? [];
     return articlesJson
-        .map((json) => Article.fromJson(json as Map<String, dynamic>))
+        .map(
+          (json) => Article.fromJson(
+            json as Map<String, dynamic>,
+            category: category,
+          ),
+        )
         .toList();
   }
 }
